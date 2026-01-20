@@ -2,6 +2,7 @@ import os
 import torch
 import soundfile as sf
 import numpy as np
+import librosa
 
 from vibevoice.modular.configuration_vibevoice import VibeVoiceConfig
 from vibevoice.modular.modular_vibevoice_text_tokenizer import VibeVoiceTextTokenizerFast
@@ -15,14 +16,16 @@ DTYPE = torch.bfloat16
 
 # ---------- helpers ----------
 
-def load_wav(path, target_sr=None):
+def load_wav(path, target_sr=24000):
     audio, sr = sf.read(path)
     if audio.ndim > 1:
         audio = np.mean(audio, axis=1)
     audio = audio.astype(np.float32)
-    if target_sr is not None and sr != target_sr:
+    if sr != target_sr:
         # if you have no resampler, you can skip this and just trust sr == target_sr
-        raise ValueError(f"Expected sr={target_sr}, got {sr}")
+        #raise ValueError(f"Expected sr={target_sr}, got {sr}")
+        audio = librosa.resample(audio, orig_sr=sr, target_sr=target_sr)
+        sr = target_sr
     return audio, sr
 
 def make_speech_mask(audio_len, hop_length):
@@ -55,11 +58,17 @@ def build_voice_preset(
 
     tokenizer = VibeVoiceTextTokenizerFast.from_pretrained(MODEL_DIR)
 
+    #print(config.acoustic_tokenizer_config.__dict__)
+
+
     # 2. load wav and build speech tensors/masks
-    audio, sr = load_wav(wav_path, target_sr=config.acoustic_tokenizer_config.sampling_rate)
+    audio, sr = load_wav(wav_path, target_sr=24000)
     audio_tensor = torch.from_numpy(audio).unsqueeze(0).to(DEVICE)  # [1, T]
 
-    hop_length = np.prod(config.acoustic_tokenizer_config.ratios)
+    #hop_length = np.prod(config.acoustic_tokenizer_config.ratios)
+    #hop_length = np.prod(model.acoustic_tokenizer.encoder.ratios)
+    ratios = config.acoustic_tokenizer_config.encoder_ratios
+    hop_length = int(np.prod(ratios))
     speech_masks = make_speech_mask(len(audio), hop_length).to(DEVICE)  # [1, F]
 
     # 3. tokenize prompts
@@ -75,7 +84,7 @@ def build_voice_preset(
 
     # 5. run LM prefill (positive)
     with torch.no_grad():
-        lm_out = model(
+        lm_out = model.forward_lm(
             input_ids=pos_ids,
             attention_mask=pos_attn,
             use_cache=True,
@@ -92,7 +101,7 @@ def build_voice_preset(
 
     # 6. run LM prefill (negative)
     with torch.no_grad():
-        neg_lm_out = model(
+        neg_lm_out = model.forward_lm(
             input_ids=neg_ids,
             attention_mask=neg_attn,
             use_cache=True,
@@ -112,14 +121,16 @@ def build_voice_preset(
     # For many builds, the same forward is used and the TTS LM is just a different head/config.
     # So we reuse the same call here; you can adapt if your code exposes a dedicated TTS LM.
     with torch.no_grad():
-        tts_lm_out = model(
+        tts_lm_out = model.forward_tts_lm(
             input_ids=pos_ids,
             attention_mask=pos_attn,
+            tts_text_masks=pos_attn,
             use_cache=True,
             return_dict=True,
             speech_tensors=audio_tensor,
             speech_masks=speech_masks,
             speech_input_mask=pos_speech_input_mask,
+            lm_last_hidden_state=lm_out.last_hidden_state,
         )
 
     tts_lm_dict = {
@@ -128,14 +139,16 @@ def build_voice_preset(
     }
 
     with torch.no_grad():
-        neg_tts_lm_out = model(
+        neg_tts_lm_out = model.forward_tts_lm(
             input_ids=neg_ids,
             attention_mask=neg_attn,
+            tts_text_masks=neg_attn,
             use_cache=True,
             return_dict=True,
             speech_tensors=audio_tensor,
             speech_masks=speech_masks,
             speech_input_mask=neg_speech_input_mask,
+            lm_last_hidden_state=neg_lm_out.last_hidden_state,
         )
 
     neg_tts_lm_dict = {
