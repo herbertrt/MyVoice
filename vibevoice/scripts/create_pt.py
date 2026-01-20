@@ -9,7 +9,7 @@ from vibevoice.modular.modeling_vibevoice_streaming_inference import (
     VibeVoiceStreamingForConditionalGenerationInference,
 )
 
-MODEL_DIR = "/Microsoft/VibeVoice-0.5B"
+MODEL_DIR = "/microsoft/VibeVoice-Realtime-0.5B"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.bfloat16
 
@@ -46,7 +46,7 @@ def build_voice_preset(
 ):
     # 1. load config, model, tokenizer
     config = VibeVoiceConfig.from_pretrained(MODEL_DIR)
-    model = VibeVoiceForConditionalGenerationInference.from_pretrained(
+    model = VibeVoiceStreamingForConditionalGenerationInference.from_pretrained(
         MODEL_DIR,
         config=config,
         torch_dtype=DTYPE,
