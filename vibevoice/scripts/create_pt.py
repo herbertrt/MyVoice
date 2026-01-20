@@ -9,6 +9,10 @@ from vibevoice.modular.modular_vibevoice_text_tokenizer import VibeVoiceTextToke
 from vibevoice.modular.modeling_vibevoice_streaming_inference import (
     VibeVoiceStreamingForConditionalGenerationInference,
 )
+from vibevoice.modular.modeling_vibevoice_streaming_inference import (
+    VibeVoiceCausalLMOutputWithPast
+)
+
 
 MODEL_DIR = "/microsoft/VibeVoice-Realtime-0.5B"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -94,10 +98,15 @@ def build_voice_preset(
             speech_input_mask=pos_speech_input_mask,
         )
 
-    lm_dict = {
-        "last_hidden_state": lm_out.last_hidden_state.cpu(),
-        "past_key_values": lm_out.past_key_values,  # DynamicCache is picklable
-    }
+    #lm_dict = {
+        #"last_hidden_state": lm_out.last_hidden_state.cpu(),
+        #"past_key_values": lm_out.past_key_values,  # DynamicCache is picklable
+    #}
+    lm_obj = VibeVoiceCausalLMOutputWithPast(
+        last_hidden_state=lm_out.last_hidden_state.cpu(),
+        past_key_values=lm_out.past_key_values,
+    )
+
 
     # 6. run LM prefill (negative)
     with torch.no_grad():
@@ -111,10 +120,15 @@ def build_voice_preset(
             speech_input_mask=neg_speech_input_mask,
         )
 
-    neg_lm_dict = {
-        "last_hidden_state": neg_lm_out.last_hidden_state.cpu(),
-        "past_key_values": neg_lm_out.past_key_values,
-    }
+    #neg_lm_dict = {
+        #"last_hidden_state": neg_lm_out.last_hidden_state.cpu(),
+        #"past_key_values": neg_lm_out.past_key_values,
+    #}
+    neg_lm_obj = VibeVoiceCausalLMOutputWithPast(
+        last_hidden_state=neg_lm_out.last_hidden_state.cpu(),
+        past_key_values=neg_lm_out.past_key_values,
+    )
+
 
     # 7. TTS-LM prefill
     # If your model has a separate TTS LM head, you may need to call a different method.
@@ -133,10 +147,15 @@ def build_voice_preset(
             lm_last_hidden_state=lm_out.last_hidden_state,
         )
 
-    tts_lm_dict = {
-        "last_hidden_state": tts_lm_out.last_hidden_state.cpu(),
-        "past_key_values": tts_lm_out.past_key_values,
-    }
+    #tts_lm_dict = {
+        #"last_hidden_state": tts_lm_out.last_hidden_state.cpu(),
+        #"past_key_values": tts_lm_out.past_key_values,
+    #}
+    tts_lm_obj = VibeVoiceCausalLMOutputWithPast(
+        last_hidden_state=tts_lm_out.last_hidden_state.cpu(),
+        past_key_values=tts_lm_out.past_key_values,
+    )
+
 
     with torch.no_grad():
         neg_tts_lm_out = model.forward_tts_lm(
@@ -151,17 +170,22 @@ def build_voice_preset(
             lm_last_hidden_state=neg_lm_out.last_hidden_state,
         )
 
-    neg_tts_lm_dict = {
-        "last_hidden_state": neg_tts_lm_out.last_hidden_state.cpu(),
-        "past_key_values": neg_tts_lm_out.past_key_values,
-    }
+    #neg_tts_lm_dict = {
+        #"last_hidden_state": neg_tts_lm_out.last_hidden_state.cpu(),
+        #"past_key_values": neg_tts_lm_out.past_key_values,
+    #}
+    neg_tts_lm_obj = VibeVoiceCausalLMOutputWithPast(
+        last_hidden_state=neg_tts_lm_out.last_hidden_state.cpu(),
+        past_key_values=neg_tts_lm_out.past_key_values,
+    )
+
 
     # 8. assemble and save preset
     preset = {
-        "lm": lm_dict,
-        "tts_lm": tts_lm_dict,
-        "neg_lm": neg_lm_dict,
-        "neg_tts_lm": neg_tts_lm_dict,
+        "lm": lm_obj,
+        "tts_lm": tts_lm_obj,
+        "neg_lm": neg_lm_obj,
+        "neg_tts_lm": neg_tts_lm_obj,
     }
 
     torch.save(preset, save_path)
