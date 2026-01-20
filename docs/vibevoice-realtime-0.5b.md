@@ -87,7 +87,7 @@ We recommend to use NVIDIA Deep Learning Container to manage the CUDA environmen
 ```bash
 # NVIDIA PyTorch Container 24.07 / 24.10 / 24.12 verified. 
 # Later versions are also compatible.
-sudo docker run --privileged --net=host --ipc=host --ulimit memlock=-1:-1 --ulimit stack=-1:-1 --gpus all --rm -it  nvcr.io/nvidia/pytorch:24.07-py3
+sudo docker run --privileged --net=host --ipc=host --ulimit memlock=-1:-1 --ulimit stack=-1:-1 --gpus all --rm -it -v ~/comfyui/ComfyUI/models/vibevoice/VibeVoice-0.5B:/microsoft/VibeVoice-Realtime-0.5B nvcr.io/nvidia/pytorch:24.07-py3
 
 ## If flash attention is not included in your docker environment, you need to install it manually
 ## Refer to https://github.com/Dao-AILab/flash-attention for installation instructions
@@ -96,7 +96,7 @@ sudo docker run --privileged --net=host --ipc=host --ulimit memlock=-1:-1 --ulim
 
 2. Install from github
 ```bash
-git clone https://github.com/microsoft/VibeVoice.git
+git clone https://github.com/herbertrt/MyVoice.git
 cd VibeVoice/
 
 pip install -e .
