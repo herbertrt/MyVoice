@@ -97,7 +97,7 @@ sudo docker run --privileged --net=host --ipc=host --ulimit memlock=-1:-1 --ulim
 2. Install from github
 ```bash
 git clone https://github.com/herbertrt/MyVoice.git
-cd VibeVoice/
+cd MyVoice/
 
 pip install -e .
 ```
